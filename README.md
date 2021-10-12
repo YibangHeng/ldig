@@ -16,4 +16,4 @@ gcc -> gcc-9 -> x86_64-linux-gnu-gcc-9
 It's clearer to view these files.  
 # License
 Written by Yibang Heng.  
-Licensed under the [GNU General Public License v3.0](LICENSE.txt) license.
+Licensed under the [GNU General Public License v3.0](LICENSE) license.
