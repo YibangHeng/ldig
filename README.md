@@ -14,6 +14,18 @@ usr@dom:/usr/bin$ ldig gcc
 gcc -> gcc-9 -> x86_64-linux-gnu-gcc-9
 ```
 It's clearer to view these files.  
+## Optional arguments
+Some optional arguments bring out different printing styles.  
+* `-l` List one file per line.
+```
+usr@dom:/usr/bin$ ldig -l gcc
+gcc
+gcc-9
+x86_64-linux-gnu-gcc-9
+```
 # License
+License [GPLv3+](LICENSE): GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>  
+This is free software: you are free to change and redistribute it.  
+There is NO WARRANTY, to the extent permitted by law.  
+
 Written by Yibang Heng.  
-Licensed under the [GNU General Public License v3.0](LICENSE) license.
