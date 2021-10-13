@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "./include/cprint.h"
+
 #define __DPBS 256
 
 /**
@@ -96,7 +98,7 @@ int verify(const char *__restrict __file)
 {
     if (access(__file, F_OK) != 0)
     {
-        fprintf(stderr, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
+        cfprintf(stderr, cp_red, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
         return -1;
     }
     return 0;
@@ -112,21 +114,21 @@ typedef enum
 
 #define va_p(__item, __sp)         \
     va_start(args, __item);        \
-    __cp += vprintf(__item, args); \
+    __pc += vprintf(__item, args); \
     va_end(args);                  \
-    __cp += printf(__sp)
+    __pc += cprintf(cp_gray, __sp)
 
 /**
- * @brief 
+ * @brief Write formatted output to stdout one by one.
  * 
  * @param __app The controller for printf behavior.
  * @param __item The pointer to string to print.
  * @param ... Items to print.
- * @return Upon successful return, these functions return the number of characters printed (excluding the null byte used to end output to strings).
+ * @return The number of characters printed (excluding the null byte used to end output to strings).
  */
 int print_item(appearance __app, const char *__item, ...)
 {
-    int __cp = 0;
+    int __pc = 0;
     va_list args;
     switch (__app)
     {
@@ -140,10 +142,10 @@ int print_item(appearance __app, const char *__item, ...)
         va_p(__item, "\n");
         break;
     default:
-        __cp += fprintf(stderr, "ldig: Invalid appearance style: %d\n", __app);
+        __pc += cfprintf(stderr, cp_red, "ldig: Invalid appearance style: %d\n", __app);
         break;
     }
-    return __cp;
+    return __pc;
 }
 
 /**
