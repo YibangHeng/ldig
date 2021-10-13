@@ -11,6 +11,8 @@
 
 #define __DPBS 256
 
+char __gcwd[__DPBS] = {0};
+
 /**
  * @brief Parse a file path's prefix without any checking.
  *        Note that it doesn't return the canonical absolute name of file and assumes that __prefix has enough space to store prefix.
@@ -98,7 +100,7 @@ int verify(const char *__restrict __file)
 {
     if (access(__file, F_OK) != 0)
     {
-        cfprintf(stderr, cp_red, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
+        // cfprintf(stderr, cp_red, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
         return -1;
     }
     return 0;
@@ -160,6 +162,12 @@ int rreadlink(char *__restrict __prefix_dir, char *__restrict __name, appearance
 {
     chdir(__prefix_dir);
 
+    if (verify(__name) != 0)
+    {
+        cprintf(cp_red, "%s (broken symlink or no such file)\n", __name);
+        return -1;
+    }
+
     // Check whether a symbolic link.
     struct stat file_stat;
     lstat(__name, &file_stat);
@@ -207,13 +215,15 @@ int list(const char *__restrict __file, appearance __app)
 static int
 parse_opt(int key, char *arg, struct argp_state *state)
 {
+    // Reset the process's working directory to original for each arguments.
+    chdir(__gcwd);
     static appearance __app = ap_normal; // Set default printf behavior.
     switch (key)
     {
         static int v_ed = 0;
     case 'v': // Print version info.
-        printf("\
-ldig 0.0.1 (means not finished yet) - print symbolic links recursively.\n\
+        cprintf(ap_normal, "\
+ldig 0.0.2 (means not finished yet) - print symbolic links recursively.\n\
 Built for x86_64-pc-linux-gnu.\n\
 Written by Yibang Heng.\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
@@ -222,11 +232,14 @@ There is NO WARRANTY, to the extent permitted by law.\n\
 ");
         v_ed = 1;
         break;
-    case 'l': // List one file per line.
+    case 'l': // List-printing mode (print one file per line).
         __app = ap_list;
         break;
     case ARGP_KEY_ARG:
         list(arg, __app);
+        // To append a blank line after a chain in list-printing mode (excluding the last one).
+        if (__app == ap_list && state->argc != state->next) // (state->argc == state->next) means this arg is the last one.
+            cprintf(ap_normal, "\n");
         break;
     case ARGP_KEY_END:
         if (state->arg_num == 0 && v_ed == 0) // If no path given.
@@ -238,6 +251,8 @@ There is NO WARRANTY, to the extent permitted by law.\n\
 
 int main(int argc, char **argv)
 {
+    getcwd(__gcwd, __DPBS); // Record the original process's working directory.
+
     struct argp_option options[] =
         {
             {"version", 'v', 0, 0, "Print the version number of make and exit"},
