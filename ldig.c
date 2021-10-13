@@ -215,6 +215,8 @@ int list(const char *__restrict __file, appearance __app)
 static int
 parse_opt(int key, char *arg, struct argp_state *state)
 {
+    // Reset the process's working directory to original for each arguments.
+    chdir(__gcwd);
     static appearance __app = ap_normal; // Set default printf behavior.
     switch (key)
     {
@@ -235,18 +237,15 @@ There is NO WARRANTY, to the extent permitted by law.\n\
         break;
     case ARGP_KEY_ARG:
         list(arg, __app);
+        // To append a blank line after a chain in list-printing mode (excluding the last one).
+        if (__app == ap_list && state->argc != state->next) // (state->argc == state->next) means this arg is the last one.
+            cprintf(ap_normal, "\n");
         break;
     case ARGP_KEY_END:
         if (state->arg_num == 0 && v_ed == 0) // If no path given.
             argp_failure(state, 1, 0, "too few arguments");
         break;
     }
-    // Reset the process's working directory to original for each arguments.
-    chdir(__gcwd);
-
-    // To append a blank line after a chain in list-printing mode (excluding the last one).
-    if (__app == ap_list && state->argc != state->next) // (state->argc == state->next) means this arg is the last one.
-        cprintf(ap_normal, "\n");
     return 0;
 }
 
