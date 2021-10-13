@@ -20,7 +20,7 @@
  * @param __cp The text color in UNIX-like terminal after __cp_start().
  * @return The number of characters printed (excluding the null byte used to end output to strings).
  */
-static inline int __cp_start(cprint __cp)
+inline int __cp_start(cprint __cp)
 {
     switch (__cp)
     {
@@ -44,7 +44,7 @@ static inline int __cp_start(cprint __cp)
  * 
  * @return The number of characters printed (excluding the null byte used to end output to strings).
  */
-static inline int __cp_restore()
+inline int __cp_restore()
 {
     return __cp_start(cp_default);
 }
