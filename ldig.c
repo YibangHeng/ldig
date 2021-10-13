@@ -98,7 +98,7 @@ int verify(const char *__restrict __file)
 {
     if (access(__file, F_OK) != 0)
     {
-        fprintf(stderr, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
+        cfprintf(stderr, cp_red, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
         return -1;
     }
     return 0;
@@ -142,7 +142,7 @@ int print_item(appearance __app, const char *__item, ...)
         va_p(__item, "\n");
         break;
     default:
-        __pc += fprintf(stderr, "ldig: Invalid appearance style: %d\n", __app);
+        __pc += cfprintf(stderr, cp_red, "ldig: Invalid appearance style: %d\n", __app);
         break;
     }
     return __pc;

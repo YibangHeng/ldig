@@ -3,50 +3,47 @@
 
 #include "../include/cprint.h"
 
-#define va_cp(__item, __cp)        \
-    va_start(args, __item);        \
-    __pc += vprintf(__item, args); \
-    va_end(args)
-
-#define __GREEN "%c[1;37;32m", 0x1b
-#define __RED "%c[1;37;31m", 0x1b
-#define __BLUE "%c[1;37;34m", 0x1b
-#define __GRAY "%c[1;37;90m", 0x1b
-#define __END "%c[0m", 0x1b
+#define __GREEN "\e[32m"
+#define __RED "\e[31m"
+#define __BLUE "\e[34m"
+#define __GRAY "\e[90m"
+#define __END "\e[0m"
 
 /**
  * @brief All text color in UNIX-like terminal after __cp_start() will change to __cp.
  * 
+ * @param __stream Where the output goes.
  * @param __cp The text color in UNIX-like terminal after __cp_start().
  * @return The number of characters printed (excluding the null byte used to end output to strings).
  */
-inline int __cp_start(cprint __cp)
+inline int __cp_start(FILE *__restrict__ __stream, cprint __cp)
 {
     switch (__cp)
     {
     case cp_default:
-        return printf(__END);
+        return fprintf(__stream, __END);
     case cp_green:
-        return printf(__GREEN);
+        return fprintf(__stream, __GREEN);
     case cp_red:
-        return printf(__RED);
+        return fprintf(__stream, __RED);
     case cp_blue:
-        return printf(__BLUE);
+        return fprintf(__stream, __BLUE);
     case cp_gray:
-        return printf(__GRAY);
+        return fprintf(__stream, __GRAY);
     default:
-        return printf(__END);
+        return fprintf(__stream, __END);
     }
 }
 
 /**
  * @brief Reset the text color in UNIX-like terminal to default.
  * 
+ * @param __stream Where the output goes.
  * @return The number of characters printed (excluding the null byte used to end output to strings).
  */
-inline int __cp_restore()
+inline int __cp_restore(FILE *__restrict__ __stream)
 {
-    return __cp_start(cp_default);
+    return __cp_start(__stream, cp_default);
 }
 
 /**
@@ -60,10 +57,36 @@ inline int __cp_restore()
 int cprintf(cprint __cp, const char *__restrict __fmt, ...)
 {
     int __pc = 0;
-    __pc += __cp_start(__cp);
-    va_list args;
-    va_cp(__fmt, __cp);
+    __pc += __cp_start(stdout, __cp);
 
-    __pc += __cp_restore();
+    va_list args;
+    va_start(args, __fmt);
+    __pc += vprintf(__fmt, args);
+    va_end(args);
+
+    __pc += __cp_restore(stdout);
+    return __pc;
+}
+
+/**
+ * @brief Write formatted output to __stream in given color.
+ * 
+ * @param __stream Where the output goes.
+ * @param __cp The color that text will be.
+ * @param __fmt The pointer to string to print.
+ * @param ... Items to print.
+ * @return The number of characters printed (excluding the null byte used to end output to strings).
+ */
+int cfprintf(FILE *__restrict__ __stream, cprint __cp, const char *__restrict __fmt, ...)
+{
+    int __pc = 0;
+    __pc += __cp_start(__stream, __cp);
+
+    va_list args;
+    va_start(args, __fmt);
+    __pc += vfprintf(__stream, __fmt, args);
+    va_end(args);
+
+    __pc += __cp_restore(__stream);
     return __pc;
 }
