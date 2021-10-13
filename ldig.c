@@ -1,10 +1,13 @@
 #include <argp.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "./include/cprint.h"
 
 #define __DPBS 256
 
@@ -43,9 +46,9 @@ int __get_plain_prefix(const char *__restrict __file, char *__restrict __prefix)
  * @param __file The file path to split.
  * @param __prefix The prefix of __path.
  * @param __name The name self of __path.
- * @return char* 
+ * @return split() returns a pointer to __name.
  */
-char *split(const char *__restrict __file, char *__restrict __prefix, char *__restrict __name)
+static inline char *split(const char *__restrict __file, char *__restrict __prefix, char *__restrict __name)
 {
     return stpcpy(__name, __file + __get_plain_prefix(__file, __prefix));
 }
@@ -64,19 +67,19 @@ int prepend_verbose_prefix(char *__path)
 
     switch ((__path[0] == '/') + (__path[1] == '/') << 1 + (__path[0] == '.') << 2)
     {
-    case 0x0: // For "file"
+    case 0x0: // For "file" style.
         memmove(__path + 2, __path, strlen(__path));
         __path[0] = '.';
         __path[1] = '/';
         break;
-    case 0x1: // For "/file"
+    case 0x1: // For "/file" style.
         break;
-    case 0x4: // For ".file"
+    case 0x4: // For ".file" style.
         memmove(__path + 2, __path, strlen(__path));
         __path[0] = '.';
         __path[1] = '/';
         break;
-    case 0x6: // For "./file"
+    case 0x6: // For "./file" style.
         break;
     default:
         break;
@@ -95,10 +98,54 @@ int verify(const char *__restrict __file)
 {
     if (access(__file, F_OK) != 0)
     {
-        fprintf(stderr, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
+        cfprintf(stderr, cp_red, "ldig: Cannot access '%s': No such file or permission denied\n", __file);
         return -1;
     }
     return 0;
+}
+
+// Print style.
+typedef enum
+{
+    ap_normal,
+    ap_end,
+    ap_list,
+} appearance;
+
+#define va_p(__item, __sp)         \
+    va_start(args, __item);        \
+    __pc += vprintf(__item, args); \
+    va_end(args);                  \
+    __pc += cprintf(cp_gray, __sp)
+
+/**
+ * @brief Write formatted output to stdout one by one.
+ * 
+ * @param __app The controller for printf behavior.
+ * @param __item The pointer to string to print.
+ * @param ... Items to print.
+ * @return The number of characters printed (excluding the null byte used to end output to strings).
+ */
+int print_item(appearance __app, const char *__item, ...)
+{
+    int __pc = 0;
+    va_list args;
+    switch (__app)
+    {
+    case ap_normal:
+        va_p(__item, " -> ");
+        break;
+    case ap_list:
+        va_p(__item, "\n");
+        break;
+    case ap_end:
+        va_p(__item, "\n");
+        break;
+    default:
+        __pc += cfprintf(stderr, cp_red, "ldig: Invalid appearance style: %d\n", __app);
+        break;
+    }
+    return __pc;
 }
 
 /**
@@ -106,43 +153,34 @@ int verify(const char *__restrict __file)
  * 
  * @param __prefix_dir The file's directory.
  * @param __name The file name.
+ * @param __app The controller for printf behavior.
  * @return 0 if normal, -1 if file is not accessible or a broken symbolic link.
  */
-int rreadlink(char *__restrict __prefix_dir, char *__restrict __name)
+int rreadlink(char *__restrict __prefix_dir, char *__restrict __name, appearance __app)
 {
     chdir(__prefix_dir);
-
-    // if (verify(__name) != 0)
-    // {
-    //     // Print area.
-    //     printf("%s%s -> ?\n", __prefix_dir, __name);
-    //     // End Print area.
-    //     return -1;
-    // }
 
     // Check whether a symbolic link.
     struct stat file_stat;
     lstat(__name, &file_stat);
     if (S_ISLNK(file_stat.st_mode))
     {
-        // Print area.
-        printf("%s%s -> ", __prefix_dir, __name);
-        // End Print area.
+        print_item(__app, "%s%s", __prefix_dir, __name);
 
         static char symbolic_link_path[__DPBS] = {0};
-        memset(symbolic_link_path, 0, sizeof(char) * __DPBS);
+        memset(symbolic_link_path, 0, sizeof(char) * __DPBS); // Reset symbolic_link_path.
 
         readlink(__name, symbolic_link_path, __DPBS);
 
+        memset(__prefix_dir, 0, sizeof(char) * __DPBS); // Reset __prefix_dir.
+        memset(__name, 0, sizeof(char) * __DPBS);       // Reset __name.
         split(symbolic_link_path, __prefix_dir, __name);
 
-        rreadlink(__prefix_dir, __name);
+        rreadlink(__prefix_dir, __name, __app);
     }
     else
     {
-        // Print area.
-        printf("%s\n", __name);
-        // End Print area.
+        print_item(ap_end, "%s", __name);
         return 0;
     }
 }
@@ -151,16 +189,17 @@ int rreadlink(char *__restrict __prefix_dir, char *__restrict __name)
  * @brief Start checking. Called for each arguments.
  * 
  * @param __file The file to check.
+ * @param __app The controller for printf behavior.
  * @return The return value will always be 0. 
  */
-int list(const char *__restrict __file)
+int list(const char *__restrict __file, appearance __app)
 {
     char __prefix_dir[__DPBS] = {0};
     char __name[__DPBS] = {0};
 
     split(__file, __prefix_dir, __name);
 
-    rreadlink(__prefix_dir, __name);
+    rreadlink(__prefix_dir, __name, __app);
 
     return 0;
 }
@@ -168,12 +207,13 @@ int list(const char *__restrict __file)
 static int
 parse_opt(int key, char *arg, struct argp_state *state)
 {
+    static appearance __app = ap_normal; // Set default printf behavior.
     switch (key)
     {
         static int v_ed = 0;
     case 'v': // Print version info.
         printf("\
-ldig 0.0.0 (means not finished yet) - print symbolic links recursively.\n\
+ldig 0.0.1 (means not finished yet) - print symbolic links recursively.\n\
 Built for x86_64-pc-linux-gnu.\n\
 Written by Yibang Heng.\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
@@ -183,10 +223,10 @@ There is NO WARRANTY, to the extent permitted by law.\n\
         v_ed = 1;
         break;
     case 'l': // List one file per line.
-        // Not finished yet.
+        __app = ap_list;
         break;
     case ARGP_KEY_ARG:
-        list(arg);
+        list(arg, __app);
         break;
     case ARGP_KEY_END:
         if (state->arg_num == 0 && v_ed == 0) // If no path given.
