@@ -206,25 +206,36 @@ int list(const char *__restrict __file, appearance __app, unsigned char __args_l
     char __prefix_dir[__DPBS] = {0};
     char __name[__DPBS] = {0};
 
-    // If the input file is not a symbolic link.
+    // If --ignore argument detected.
     if ((__args_list & 0x2) == 0x2)
     {
         struct stat file_stat;
         lstat(__file, &file_stat);
-        if (!S_ISLNK(file_stat.st_mode))
+        if (!S_ISLNK(file_stat.st_mode)) // If the input file is not a symbolic link.
         {
-            if (__app == ap_list)           // In list-printing mode.
-                cprintf(ap_normal, "\e[A"); // Move arrow up.
-            return 0;
+            if ((__args_list & 0x10) == 0x10 && __app == ap_list) // If this is the last one and in list-printing mode.
+                cprintf(ap_normal, "\e[A");                       // Move arrow up to remove redundant line at the tail.
+            return 0;                                             // Note that if the last one isn't a symbolic link and ignored, there will be a redundant blank line at the tail.
+        }
+        else // If the input file is a symbolic link.
+        {
+            split(__file, __prefix_dir, __name);
+            rreadlink(__prefix_dir, __name, __app);
+
+            // To append a blank line after a chain in list-printing mode (excluding the last one).
+            if ((__args_list & 0x10) != 0x10 && __app == ap_list) // If this isn't the last one and in list-printing mode.
+                cprintf(ap_normal, "\n");
         }
     }
+    else // If --ignore argument not detected.
+    {
+        split(__file, __prefix_dir, __name);
+        rreadlink(__prefix_dir, __name, __app);
 
-    split(__file, __prefix_dir, __name);
-    rreadlink(__prefix_dir, __name, __app);
-
-    // To append a blank line after a chain in list-printing mode (excluding the last one).
-    if ((__args_list & 0x10) != 0x10 && __app == ap_list) // If this isn't the last one and in list-printing mode.
-        cprintf(ap_normal, "\n");
+        // To append a blank line after a chain in list-printing mode (excluding the last one).
+        if ((__args_list & 0x10) != 0x10 && __app == ap_list) // If this isn't the last one and in list-printing mode.
+            cprintf(ap_normal, "\n");
+    }
 
     return 0;
 }
@@ -261,13 +272,12 @@ There is NO WARRANTY, to the extent permitted by law.\n\
         __app = ap_list;
         break;
     case ARGP_KEY_ARG:
-
         if (__app == ap_list && state->argc == state->next) // (state->argc == state->next) means this arg is the last one.
             __args_list |= 0x10;
         list(arg, __app, __args_list);
         break;
     case ARGP_KEY_END:
-        if (state->arg_num == 0 && __args_list & 0x1 == 0) // If no path given and no --version argument detected.
+        if (state->arg_num == 0 && (__args_list & 0x1) == 0) // If no path given and no --version argument detected.
             argp_failure(state, 1, 0, "too few arguments");
         break;
     }
